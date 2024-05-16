@@ -24,14 +24,24 @@
     --fw-bold: 700;
     --fw-black: 900;
 
+    --piece-width: 64px;
+
     --dark-color: #111111;
     --light-color: #f5f1ed;
     --primary-color: #252323;
     --secondary-color: #70798c;
     --tertiary-color: #dad2bc;
 
-    --c-lc: #fff;
-    --c-dc: #000;
+    --default-lc: #fff;
+    --default-dc: #000;
+    
+    --punk-lc: #d6266e;
+    --punk-dc: #162546;
+
+    --pb-lc: #eaa8a9;
+    --pb-dc: #0b0b0b;
+
+
 }
 
 body,
@@ -84,6 +94,7 @@ body {
   justify-content: center;
   height: 100vh;
   max-height: 100vh;
+  overflow: hidden;
 }
 
 .chess-table {
@@ -99,17 +110,49 @@ body {
 
 .cell {
   aspect-ratio: 1/1;
-  width: 48px;
+  width: var(--piece-width);
+  position: relative;
   /* background-image: url('./assets/pieces/default/P.png'); */
-  background-size: 90%;
+  background-size: 80%;
   background-position: center;
   background-repeat: no-repeat;
 }
 
+.cell.selected::after, .highlight {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: .8;
+  background-color: rgb(255, 255, 162);
+}
+
 .row:nth-child(odd) .cell:nth-child(odd), .row:nth-child(even)  .cell:nth-child(even) {
-  background-color: var(--c-lc);
+  --light-color: var(--default-lc);
+  --dark-color: var(--default-dc);
+  background-color: var(--light-color);
 }
 
 .row:nth-child(even)  .cell:nth-child(odd),  .row:nth-child(odd)  .cell:nth-child(even) {
-  background-color: var(--c-dc);
+  --light-color: var(--default-lc);
+  --dark-color: var(--default-dc);
+  background-color: var(--dark-color);
+}
+
+.pieces {
+  position: relative;
+}
+
+.piece {
+  aspect-ratio: 1/1;
+  position: absolute;
+  width: var(--piece-width);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-size: 80%;
+  user-select: none;
+  cursor: grab;
 }

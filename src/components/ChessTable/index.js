@@ -120,7 +120,7 @@ function Piece(props) {
     const isThisFocus = isThisActive && pieceActive?.isFocus
 
     const styles = {
-        backgroundImage: `url("/chess-project/assets/pieces/${theme}/${piece}${side}.png")`,
+        backgroundImage: `url("/chess-project/assets/pieces/${theme}/${piece.toLowerCase()}${side}.png")`,
         left: isThisMoving ? '0px' : `calc(${column}*var(--piece-width))`,
         top: isThisMoving  ? '0px' : `calc(${row}*var(--piece-width))`,
         transform: isThisMoving  ? `translate(${minMax_x}%, ${minMax_y}%)` : 'none',

@@ -3,8 +3,6 @@ import ChessTable from './components/ChessTable'
 
 export default function App() {
   return (
-    <main className="main-game">
       <ChessTable/>
-    </main>
   )
 }

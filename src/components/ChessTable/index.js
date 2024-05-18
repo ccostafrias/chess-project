@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 
 export default function ChessTable() {
     const [pieceActive, setPieceActive] = useState(null)
+    const [eventCell, setEventCell] = useState()
+    const [marks, setMarks] = useState([])
 
     // const fen = "8/pp2k3/4p3/P3p3/1P4p1/N1p3Pp/3r1P1P/4K3 w - - 0 34"
     const startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -16,6 +18,11 @@ export default function ChessTable() {
                 key={i}
                 rowIndex={i}
                 pieceActive={pieceActive}
+                setPieceActive={setPieceActive}
+                eventCell={eventCell}
+                setEventCell={setEventCell}
+                marks={marks}
+                setMarks={setMarks}
             />
         )
     })
@@ -28,19 +35,25 @@ export default function ChessTable() {
                 index={i}
                 pieceActive={pieceActive}
                 setPieceActive={setPieceActive}
+                setEventCell={setEventCell}
             />
         )
     })
 
+    function handleContextMenu(e) {
+        e.preventDefault()
+        return false
+    }
+
     return (
-        <>
+        <main className="main-game" onContextMenu={handleContextMenu}>
             <div className='pieces'>
                 {piecesElements}
             </div>
             <div className='chess-table'>
                 {tableElements}
             </div>
-        </>
+        </main>
     )
 }
 
@@ -58,7 +71,7 @@ function numberToItem(arr) {
 
 
 function Row(props) {
-    const {row, pieceActive, rowIndex} = props
+    const {row, pieceActive, setPieceActive, rowIndex, eventCell, setEventCell, marks, setMarks} = props
     const rowsFull = numberToItem(row)
     
     const rowElements = rowsFull.map((c, i) => {
@@ -67,8 +80,13 @@ function Row(props) {
                 key={i}
                 piece={c}
                 pieceActive={pieceActive}
+                setPieceActive={setPieceActive}
                 rowIndex={rowIndex}
                 columnIndex={i}
+                eventCell={eventCell}
+                setEventCell={setEventCell}
+                marks={marks}
+                setMarks={setMarks}
             />
         )
     })
@@ -81,11 +99,16 @@ function Row(props) {
 }
 
 function Cell(props) {
-    const {pieceActive, rowIndex, columnIndex} = props
+    const {pieceActive, rowIndex, columnIndex, setPieceActive, eventCell, setEventCell, marks, setMarks} = props
     const color = 'punk'
     const index = rowIndex*8 + columnIndex
     const isThisActive = pieceActive?.index === index
-    const isThisFocus = isThisActive && pieceActive?.isFocus
+    const thisSelectedStage = pieceActive?.selectedStage || 0
+    const isThisMarked = marks?.includes(index)
+    const { actualCell, eventClone, button } = eventCell || {}
+
+    const [preHigh, setPreHigh] = useState()
+    const isThisPreHigh = preHigh === index
 
     const styles = {
         // backgroundImage: `url("/chess-project/assets/pieces/${theme}/${piece}${side}.png")`,
@@ -93,13 +116,69 @@ function Cell(props) {
         "--dark-color": `var(--${color}-dc)`,
     }
 
+    
+    function handleMouseUp(e) {
+        if (e.button === 0) {
+            if (!isThisActive) return
+            
+            if (thisSelectedStage >= 2) {
+                setPieceActive(null)
+            }
+        } else if (e.button === 2) {
+            if (isThisMarked) {
+                setMarks(prev => ([...prev.filter(i => i !== index)]))
+
+            } else {
+                setMarks(prev => ([...prev, index]))
+            }
+        }
+    }
+
+    function handleMouseDown(e) {
+        if (e.button === 0) {
+            if (!isThisActive) return
+    
+            const selectedStage = thisSelectedStage + 1
+            setPieceActive(prev => ({...prev, selectedStage}))
+            setMarks([])
+        } else if (e.button === 2) {
+            setPieceActive(null)
+        }
+    }
+
+    // console.log(preHigh)
+    
+    function handleMouseEnter(e) {
+        console.log(e)
+
+        if (!pieceActive?.isMoving) return
+
+        setPreHigh(index)
+    }
+
+    useEffect(() => {
+        if (actualCell || button === 2) {
+            // console.log(actualCell, eventClone)
+            actualCell.dispatchEvent(eventClone)
+        }
+    }, [eventCell])
+
+
     return (
-        <div className={`cell ${isThisFocus ? 'Focus' : ''}`} style={styles} data-row={rowIndex} data-column={columnIndex}/>
+        <div 
+            className={`cell ${isThisPreHigh ? 'pre-high' : ''} ${isThisMarked ? 'marked' : ''} ${isThisActive && thisSelectedStage !== 0 ? 'selected' : ''}`}
+            style={styles} 
+            data-row={rowIndex} 
+            data-column={columnIndex}
+            onMouseUp={handleMouseUp}
+            onMouseDown={handleMouseDown}
+            onMouseEnter={handleMouseEnter}
+        />
     )
 }
 
 function Piece(props) {
-    const {piece, index, pieceActive, setPieceActive} = props
+    const {piece, index, pieceActive, setPieceActive, setEventCell} = props
 
     const cellSize = Number(getComputedStyle(document.body).getPropertyValue('--piece-width').slice(0, -2))
     const theme = 'default_02'
@@ -126,31 +205,50 @@ function Piece(props) {
         transform: isThisMoving  ? `translate(${minMax_x}%, ${minMax_y}%)` : 'none',
         zIndex: isThisMoving ? '99' : '1'
     }
-    if (isThisActive) {
-        console.log(isThisFocus)
-    }
 
     function handleMouseDown(e) {
-        console.log(isThisFocus)
-        const {x, y} = e.target.closest('.main-game').getBoundingClientRect()
-        setPieceActive(
-            {
-                index, 
-                start_x: x + cellSize/2, 
-                start_y: y + cellSize/2, 
-                moving_x: e.clientX, 
-                moving_y: e.clientY, 
-                isFocus: true,
-                isMoving: true,
-            })
+        const {button} = e
+        if (button !== 0 && button !== 2) return
+        if (button === 0) {
+            const {x, y} = e.target.closest('.main-game').getBoundingClientRect()
+            setPieceActive(prev => (
+                {
+                    index, 
+                    start_x: x + cellSize/2, 
+                    start_y: y + cellSize/2, 
+                    moving_x: e.clientX, 
+                    moving_y: e.clientY, 
+                    isFocus: true,
+                    isMoving: true,
+                    selectedStage: index !== prev?.index ? 0 : prev?.selectedStage
+                }
+            ))
+        } 
+        const {eventClone, actualCell} = getEvent(e, {x: e.clientX, y: e.clientY})
+        setEventCell({actualCell, eventClone, button})
     }
 
     function handleMouseUp(e) {
-        console.log(e.target.clientX)
-        // if (isThisMoving) return
+        const {button} = e
+        if (button !== 0 && button !== 2) return
+        const {eventClone, actualCell} = getEvent(e, {x: e.clientX, y: e.clientY})
+        setEventCell({actualCell, eventClone, button})
+
         if (!isThisFocus) return
 
-        setPieceActive(prev => ({...prev, isFocus: false}))
+        if (button == 0) {
+            setPieceActive(prev => ({...prev, isFocus: false}))
+        }
+    }
+
+    function getEvent(e, coords) {
+        const {x, y} = coords
+        const eventClone = new MouseEvent(e.type, e)
+        const elements = document.elementsFromPoint(x, y)
+        const cells = [...document.querySelectorAll('.cell')]
+        const [actualCell] = cells.filter(c => elements.includes(c))
+
+        return {actualCell, eventClone}
     }
 
     function handleStopMoving(e) {
@@ -163,6 +261,13 @@ function Piece(props) {
         if (!isThisMoving) return
         // const distance  = e.clientX - pieceActive.start_x
         setPieceActive(prev => ({...prev, moving_x: e.clientX, moving_y: e.clientY, isMoving: true}))
+    }
+
+    function handleMouseEnter(e) {
+        const {button} = e
+        // if (!isThisMoving) return
+        const {eventClone, actualCell} = getEvent(e, {x: e.clientX, y: e.clientY})
+        setEventCell({actualCell, eventClone, button})
     }
 
     useEffect(() => {
@@ -178,7 +283,13 @@ function Piece(props) {
     }, [pieceActive])
 
     return (
-        <div className='piece' style={styles} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}></div>
+        <div 
+            className='piece' 
+            style={styles} 
+            onMouseDown={handleMouseDown} 
+            onMouseUp={handleMouseUp}
+            onMouseEnter={handleMouseEnter}
+        />
     )
 }
 

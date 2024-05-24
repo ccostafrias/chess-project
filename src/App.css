@@ -129,7 +129,7 @@ body {
 }
 
 .cell.move::after, .cell.attack::after {
-  --color: #505050b6;
+  --color: #ffffffb6;
 }
 
 .cell.selected::after { background-color: rgb(255, 255, 162); }

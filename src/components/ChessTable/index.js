@@ -2,25 +2,56 @@ import React, { useEffect, useState } from 'react'
 
 const movements = {
     n: [
-        {c: -2, r: -1},
-        {c: -1, r: -2},
-        {c: 2, r: -1},
-        {c: 1, r: -2},
-        {c: -2, r: 1},
-        {c: -1, r: 2},
-        {c: 2, r: 1},
-        {c: 1, r: 2},
+        {c: -2, r: -1, isAttack: true},
+        {c: -1, r: -2, isAttack: true},
+        {c: 2, r: -1, isAttack: true},
+        {c: 1, r: -2, isAttack: true},
+        {c: -2, r: 1, isAttack: true},
+        {c: -1, r: 2, isAttack: true},
+        {c: 2, r: 1, isAttack: true},
+        {c: 1, r: 2, isAttack: true},
     ],
     k: [
-        {c: -1, r: -1},
-        {c: 0, r: -1},
-        {c: 1, r: -1},
-        {c: -1, r: 0},
-        {c: 0, r: 0},
-        {c: 1, r: 0},
-        {c: -1, r: 1},
-        {c: 0, r: 1},
-        {c: 1, r: 1},
+        {c: -1, r: -1, isAttack: true},
+        {c: 0, r: -1, isAttack: true},
+        {c: 1, r: -1, isAttack: true},
+        {c: -1, r: 0, isAttack: true},
+        {c: 1, r: 0, isAttack: true},
+        {c: -1, r: 1, isAttack: true},
+        {c: 0, r: 1, isAttack: true},
+        {c: 1, r: 1, isAttack: true},
+    ],
+    r: [
+        {c: 0, r: -1, isLoop: true, isAttack: true},
+        {c: 0, r: 1, isLoop: true, isAttack: true},
+        {c: 1, r: 0, isLoop: true, isAttack: true},
+        {c: -1, r: 0, isLoop: true, isAttack: true},
+    ],
+    b: [
+        {c: -1, r: -1, isLoop: true, isAttack: true},
+        {c: 1, r: -1, isLoop: true, isAttack: true},
+        {c: -1, r: 1, isLoop: true, isAttack: true},
+        {c: 1, r: 1, isLoop: true, isAttack: true},
+    ],
+    q: [
+        {c: -1, r: -1, isLoop: true, isAttack: true},
+        {c: 1, r: -1, isLoop: true, isAttack: true},
+        {c: -1, r: 1, isLoop: true, isAttack: true},
+        {c: 1, r: 1, isLoop: true, isAttack: true},
+        {c: 0, r: -1, isLoop: true, isAttack: true},
+        {c: -1, r: 0, isLoop: true, isAttack: true},
+        {c: 1, r: 0, isLoop: true, isAttack: true},
+        {c: 0, r: 1, isLoop: true, isAttack: true},
+    ],
+    p: [
+        {c: 0, r: 1, isAttack: false, sideNeeded: 'b'},
+        {c: 0, r: 2, isAttack: false, sideNeeded: 'b', condition: (props) => props.r === 1 && !props.pieces.find(p => p.i === (props.r+1)*8+props.c)},
+        {c: 0, r: -1, isAttack: false, sideNeeded: 'w'},
+        {c: 0, r: -2, isAttack: false, sideNeeded: 'w', condition: (props) => props.r === 6 && !props.pieces.find(p => p.i === (props.r-1)*8+props.c)},
+        {c: 1, r: 1, isAttack: true, sideNeeded: 'b', condition: (props) => !!props.pieceTarget},
+        {c: -1, r: 1, isAttack: true, sideNeeded: 'b', condition: (props) => !!props.pieceTarget},
+        {c: 1, r: -1, isAttack: true, sideNeeded: 'w', condition: (props) => !!props.pieceTarget},
+        {c: -1, r: -1, isAttack: true, sideNeeded: 'w', condition: (props) => !!props.pieceTarget},
     ]
 }
 
@@ -30,23 +61,54 @@ export default function ChessTable() {
     const [marks, setMarks] = useState([])
     const [preHigh, setPreHigh] = useState()
 
-    // const fen = "8/pp2k3/4p3/P3p3/1P4p1/N1p3Pp/3r1P1P/4K3 w - - 0 34"
-    const startFen = "r1bqkbnr/pppppppp/8/3n4/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-    const fen = startFen
+    const fenEx = "8/pp2k3/4p3/P3p3/1P4p1/N1p3Pp/3r1P1P/4K3 w - - 0 34"
+    const startFen = "r1bqkbnr/pppppppp/8/3Pp3/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    const fen = fenEx
     const fenSplited = fen.split(" ")
     const [table] = fenSplited
     const tableSplited = table.split('/')
 
     const { actualCell, eventClone, button } = eventCell || {}
-
-
-    useEffect(() => {
-        if (actualCell || button === 2) {
-            actualCell.dispatchEvent(eventClone)
-        }
-    }, [eventCell])
-
+    const { piece, side, column, row } = pieceActive || {}
+        
     const pieces = numberToItem(tableSplited.join('')).map((piece, i) => ({p: piece, i, side: isCapitalize(piece) ? 'w' : 'b'})).filter(piece => piece.p != '0')
+
+    function allMoves(arr, piece) {
+        const reduce = arr.reduce((prev, curr) => {
+            const validMoves = (target, actual, moves = []) => {
+                const {c, r, isLoop, isAttack, sideNeeded, condition} = target
+                const {column, row, side} = actual
+
+                if (sideNeeded && sideNeeded !== side) return moves
+
+                if (column + c < 0 || column + c > 7) return moves
+                if (row + r < 0 || row + r > 7) return moves
+
+                const i = (row+r)*8+(column+c)
+                const pieceTarget = pieces.find(p => p.i === i)
+                const rightCondition = condition && condition({c: column, r: row, pieceTarget, pieces})
+
+                if (condition && !rightCondition) return moves
+
+                if (pieceTarget?.side === side) return moves
+                if (pieceTarget && !isAttack) return moves
+
+                const increment = [...moves, {i, type: pieceTarget && isAttack ? 'attack' : 'move'}]
+                
+                if (isLoop && !pieceTarget) return validMoves(target, {column: column + c, row: row + r, side}, increment)
+                return increment
+            }
+
+            const moves = validMoves(curr, piece)
+            // console.log(moves, prev, curr)
+            return [...prev, ...moves]
+
+        }, [])
+
+        return reduce
+    }
+
+    const attackMoves = pieceActive ? allMoves(movements[piece.toLowerCase()], {column, row, side}): []
 
     const tableElements = tableSplited.map((r, i) => {
         return (
@@ -63,9 +125,11 @@ export default function ChessTable() {
                 preHigh={preHigh}
                 setPreHigh={setPreHigh}
                 pieces={pieces}
+                attackMoves={attackMoves}
             />
         )
     })
+
     const piecesElements = pieces.map(piece => {
         const {p, i} = piece
         return (
@@ -85,6 +149,12 @@ export default function ChessTable() {
         e.preventDefault()
         return false
     }
+
+    useEffect(() => {
+        if (actualCell || button === 2) {
+            actualCell.dispatchEvent(eventClone)
+        }
+    }, [eventCell])
 
     return (
         <main className="main-game" onContextMenu={handleContextMenu}>
@@ -124,6 +194,7 @@ function Row(props) {
         preHigh,
         setPreHigh,
         pieces,
+        attackMoves,
     } = props
     const rowsFull = numberToItem(row)
     
@@ -143,6 +214,7 @@ function Row(props) {
                 preHigh={preHigh}
                 setPreHigh={setPreHigh}
                 pieces={pieces}
+                attackMoves={attackMoves}
             />
         )
     })
@@ -166,7 +238,8 @@ function Cell(props) {
         setMarks,
         preHigh,
         setPreHigh,
-        pieces
+        pieces,
+        attackMoves,
     } = props
 
     const color = 'punk'
@@ -181,34 +254,8 @@ function Cell(props) {
         "--light-color": `var(--${color}-lc)`,
         "--dark-color": `var(--${color}-dc)`,
     }
-    
-    const {piece, side, column, row} = pieceActive || {}
 
-    function verifyValidMovements(arr, column, row, side) {
-        const filtered = arr.filter(m => {
-            const {c, r} = m
-            const i = (row+r)*8+(column+c)
-            const isSameSide = pieces.find(p => p.i === i && p.side === side)
-            if (isSameSide) return false
-            if (column + c < 0 || column + c > 7) return false
-            if (row + r < 0 || row + r > 7) return false
-            // if (pieces.find(p => p.i === (row+r)*8+(column+c))) return false
-            return true
-        })
-        const moddified = filtered.map(m => {
-            const {c, r} = m
-            const i = (row+r)*8+(column+c)
-            const type = pieces.find(p => p.i === i) ? 'attack' : 'move'
-
-            return {i, type}
-        })
-        return moddified
-    }
-
-    const attackMoves = pieceActive ? verifyValidMovements(movements[piece.toLowerCase()], column, row, side) : []
     const isThisMovement = attackMoves.find(attk => attk.i === index)?.type
-
-    console.log(isThisMovement)
     
     function handleMouseUp(e) {
         if (e.button === 0) {
@@ -248,7 +295,6 @@ function Cell(props) {
 
         setPreHigh(index)
     }
-
 
     return (
         <div 

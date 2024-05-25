@@ -20,6 +20,11 @@ const movements = {
         {c: -1, r: 1, isAttack: true},
         {c: 0, r: 1, isAttack: true},
         {c: 1, r: 1, isAttack: true},
+        {c: 2, r: 0, isAttack: true, sideNeeded: 'w', condition: (props) => props.castles.includes('K'), castle: 'K'},
+        {c: -2, r: 0, isAttack: true, sideNeeded: 'w', condition: (props) => props.castles.includes('Q'), castle: 'Q'},
+        {c: 2, r: 0, isAttack: true, sideNeeded: 'b', condition: (props) => props.castles.includes('k'), castle: 'k'},
+        {c: -2, r: 0, isAttack: true, sideNeeded: 'b', condition: (props) => props.castles.includes('q'), castle: 'q'},
+
     ],
     r: [
         {c: 0, r: -1, isLoop: true, isAttack: true},
@@ -48,11 +53,21 @@ const movements = {
         {c: 0, r: 2, isAttack: false, sideNeeded: 'b', condition: (props) => props.r === 1 && !props.pieces.find(p => p.i === (props.r+1)*8+props.c)},
         {c: 0, r: -1, isAttack: false, sideNeeded: 'w'},
         {c: 0, r: -2, isAttack: false, sideNeeded: 'w', condition: (props) => props.r === 6 && !props.pieces.find(p => p.i === (props.r-1)*8+props.c)},
-        {c: 1, r: 1, isAttack: true, sideNeeded: 'b', condition: (props) => !!props.pieceTarget},
-        {c: -1, r: 1, isAttack: true, sideNeeded: 'b', condition: (props) => !!props.pieceTarget},
-        {c: 1, r: -1, isAttack: true, sideNeeded: 'w', condition: (props) => !!props.pieceTarget},
-        {c: -1, r: -1, isAttack: true, sideNeeded: 'w', condition: (props) => !!props.pieceTarget},
+        {c: -1, r: 1, isAttack: true, sideNeeded: 'b', condition: (props) => !!props.pieceTarget || notationToIndex(props.enpassant).i === (props.r+1)*8+props.c-1, isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r+1)*8+props.c-1},
+        {c: 1, r: 1, isAttack: true, sideNeeded: 'b', condition: (props) => !!props.pieceTarget || notationToIndex(props.enpassant).i === (props.r+1)*8+props.c+1, isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r+1)*8+props.c+1},
+        {c: -1, r: -1, isAttack: true, sideNeeded: 'w', condition: (props) => !!props.pieceTarget || notationToIndex(props.enpassant).i === (props.r-1)*8+props.c-1, isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r-1)*8+props.c-1},
+        {c: 1, r: -1, isAttack: true, sideNeeded: 'w', condition: (props) => !!props.pieceTarget || notationToIndex(props.enpassant).i === (props.r-1)*8+props.c+1, isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r-1)*8+props.c+1},
     ]
+}
+
+function notationToIndex(notation) {
+    if (notation === '-') return {}
+    const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+    const [first, second] = notation.split('')
+    const c = letters.indexOf(first)
+    const r = 8-Number(second)
+    const i = r*8+c
+    return {r, c, i}
 }
 
 export default function ChessTable() {
@@ -61,11 +76,13 @@ export default function ChessTable() {
     const [marks, setMarks] = useState([])
     const [preHigh, setPreHigh] = useState()
 
-    const fenEx = "8/pp2k3/4p3/P3p3/1P4p1/N1p3Pp/3r1P1P/4K3 w - - 0 34"
+
+    const fenEx = "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1"
+    // const fenEx = "8/pp2k3/4p3/P7/1PN2Pp1/2p3Pp/3r3P/4K3 b - f3 0 35"
     const startFen = "r1bqkbnr/pppppppp/8/3Pp3/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     const fen = fenEx
     const fenSplited = fen.split(" ")
-    const [table] = fenSplited
+    const [table, turn, castles, enpassant, halfTurns, fullTurns] = fenSplited
     const tableSplited = table.split('/')
 
     const { actualCell, eventClone, button } = eventCell || {}
@@ -73,11 +90,14 @@ export default function ChessTable() {
         
     const pieces = numberToItem(tableSplited.join('')).map((piece, i) => ({p: piece, i, side: isCapitalize(piece) ? 'w' : 'b'})).filter(piece => piece.p != '0')
 
-    function allMoves(arr, piece) {
+    console.log(pieces)
+
+    function allMoves(arr, piece, table) {
         const reduce = arr.reduce((prev, curr) => {
-            const validMoves = (target, actual, moves = []) => {
+            const validMoves = (target, actual, table, moves = []) => {
                 const {c, r, isLoop, isAttack, sideNeeded, condition} = target
                 const {column, row, side} = actual
+                const {castles, enpassant} = table
 
                 if (sideNeeded && sideNeeded !== side) return moves
 
@@ -86,7 +106,8 @@ export default function ChessTable() {
 
                 const i = (row+r)*8+(column+c)
                 const pieceTarget = pieces.find(p => p.i === i)
-                const rightCondition = condition && condition({c: column, r: row, pieceTarget, pieces})
+                const rightCondition = condition && condition({c: column, r: row, pieceTarget, pieces, castles, enpassant})
+                console.log(notationToIndex(enpassant).i === (row-1)*8+column-1)
 
                 if (condition && !rightCondition) return moves
 
@@ -95,11 +116,11 @@ export default function ChessTable() {
 
                 const increment = [...moves, {i, type: pieceTarget && isAttack ? 'attack' : 'move'}]
                 
-                if (isLoop && !pieceTarget) return validMoves(target, {column: column + c, row: row + r, side}, increment)
+                if (isLoop && !pieceTarget) return validMoves(target, {column: column + c, row: row + r, side}, table, increment)
                 return increment
             }
 
-            const moves = validMoves(curr, piece)
+            const moves = validMoves(curr, piece, table)
             // console.log(moves, prev, curr)
             return [...prev, ...moves]
 
@@ -108,7 +129,7 @@ export default function ChessTable() {
         return reduce
     }
 
-    const attackMoves = pieceActive ? allMoves(movements[piece.toLowerCase()], {column, row, side}): []
+    const attackMoves = pieceActive ? allMoves(movements[piece.toLowerCase()], {column, row, side, castles}, {castles, enpassant}): []
 
     const tableElements = tableSplited.map((r, i) => {
         return (

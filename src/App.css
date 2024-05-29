@@ -24,7 +24,7 @@
     --fw-bold: 700;
     --fw-black: 900;
 
-    --piece-width: 64px;
+    --piece-width: 52px;
 
     --dark-color: #111111;
     --light-color: #f5f1ed;
@@ -90,11 +90,19 @@ body {
   grid-template-rows: 1fr 1fr 0fr;
   transition: 500ms cubic-bezier(.47,.05,.32,.98); */
   display: flex;
-  align-items: center;
+  /* align-items: center; */
   justify-content: center;
-  height: 100vh;
-  max-height: 100vh;
-  overflow: hidden;
+  /* height: 100vh; */
+  /* max-height: 100vh; */
+  /* overflow: hidden; */
+  padding: 2em;
+}
+
+.main-game {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin: 0 auto;
 }
 
 .chess-table {
@@ -174,5 +182,24 @@ body {
 
 html:has(.moving) {
   cursor: grabbing;
+}
 
+.player {
+  --size: 40px;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  height: var(--size);
+}
+
+.player-avatar {
+  aspect-ratio: 1/1;
+  width: var(--size);
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.player-name {
+  font-size: var(--fs-400);
+  font-weight: var(--fw-regular);
 }

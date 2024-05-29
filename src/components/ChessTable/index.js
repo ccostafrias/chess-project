@@ -53,11 +53,19 @@ const movements = {
         {c: 0, r: 2, isAttack: false, sideNeeded: 'b', condition: (props) => props.r === 1 && !props.pieces.find(p => p.i === (props.r+1)*8+props.c)},
         {c: 0, r: -1, isAttack: false, sideNeeded: 'w'},
         {c: 0, r: -2, isAttack: false, sideNeeded: 'w', condition: (props) => props.r === 6 && !props.pieces.find(p => p.i === (props.r-1)*8+props.c)},
-        {c: -1, r: 1, isAttack: true, sideNeeded: 'b', condition: (props) => !!props.pieceTarget || notationToIndex(props.enpassant).i === (props.r+1)*8+props.c-1, isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r+1)*8+props.c-1},
-        {c: 1, r: 1, isAttack: true, sideNeeded: 'b', condition: (props) => !!props.pieceTarget || notationToIndex(props.enpassant).i === (props.r+1)*8+props.c+1, isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r+1)*8+props.c+1},
-        {c: -1, r: -1, isAttack: true, sideNeeded: 'w', condition: (props) => !!props.pieceTarget || notationToIndex(props.enpassant).i === (props.r-1)*8+props.c-1, isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r-1)*8+props.c-1},
-        {c: 1, r: -1, isAttack: true, sideNeeded: 'w', condition: (props) => !!props.pieceTarget || notationToIndex(props.enpassant).i === (props.r-1)*8+props.c+1, isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r-1)*8+props.c+1},
+        {c: -1, r: 1, isAttack: true, sideNeeded: 'b'},//, condition: (props) => (notationToIndex(props.enpassant).i === (props.r+1)*8+props.c-1 && isBetween(40, notationToIndex(props.enpassant).i, 47)), isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r+1)*8+props.c-1},
+        {c: 1, r: 1, isAttack: true, sideNeeded: 'b'},// condition: (props) => (notationToIndex(props.enpassant).i === (props.r+1)*8+props.c+1 && isBetween(40, notationToIndex(props.enpassant).i, 47)), isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r+1)*8+props.c+1},
+        {c: -1, r: -1, isAttack: true, sideNeeded: 'w'},// condition: (props) => (notationToIndex(props.enpassant).i === (props.r-1)*8+props.c-1 && isBetween(16, notationToIndex(props.enpassant).i, 23)), isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r-1)*8+props.c-1},
+        {c: 1, r: -1, isAttack: true, sideNeeded: 'w'},// condition: (props) => (notationToIndex(props.enpassant).i === (props.r-1)*8+props.c+1 && isBetween(16, notationToIndex(props.enpassant).i, 23)), isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r-1)*8+props.c+1},
     ]
+}
+
+function isBetween(less, bet, great) {
+    return !!(less <= bet && bet <= great)
+}
+
+function closer(v1, v2, ref) {
+    return Math.abs(v1 - ref) < Math.abs(v2 - ref) ? v1 : v2;
 }
 
 function notationToIndex(notation) {
@@ -70,6 +78,33 @@ function notationToIndex(notation) {
     return {r, c, i}
 }
 
+function translatedTable(array) {
+    // Cria uma string concatenando os valores da chave 'p' de cada objeto
+    let str = array.map(obj => obj.p).join('');
+    
+    // Inicializa uma variável para armazenar o resultado final
+    let result = '';
+    
+    // Processa a string em blocos de 8 caracteres
+    for (let i = 0; i < str.length; i += 8) {
+        // Extrai um bloco de 8 caracteres ou menos
+        let chunk = str.slice(i, i + 8);
+        
+        // Substitui sequências de zeros consecutivos pelo seu comprimento
+        chunk = chunk.replace(/0+/g, match => match.length);
+        
+        // Adiciona o bloco processado ao resultado
+        result += chunk + '/';
+    }
+    
+    // Remove a barra final desnecessária
+    if (result.endsWith('/')) {
+        result = result.slice(0, -1);
+    }
+    
+    return result;
+}
+
 export default function ChessTable() {
     const [pieceActive, setPieceActive] = useState(null)
     const [eventCell, setEventCell] = useState()
@@ -77,26 +112,38 @@ export default function ChessTable() {
     const [preHigh, setPreHigh] = useState()
 
 
-    const fenEx = "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1"
-    // const fenEx = "8/pp2k3/4p3/P7/1PN2Pp1/2p3Pp/3r3P/4K3 b - f3 0 35"
-    const startFen = "r1bqkbnr/pppppppp/8/3Pp3/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-    const fen = fenEx
-    const fenSplited = fen.split(" ")
-    const [table, turn, castles, enpassant, halfTurns, fullTurns] = fenSplited
-    const tableSplited = table.split('/')
+    const fenPassant = "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1"
+    const fenEndGame = "8/pp2k3/4p3/P7/1PN2Pp1/2p3Pp/3r3P/4K3 b - f3 0 35"
+    const startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    const fenEx = fenEndGame
+    // const fenSplited = fenEx.split(" ")
+    // const [tableNotation, turn, castles, enpassant, halfTurns, fullTurns] = fenSplited
+    // const tableSplited = tableNotation.split('/')
+    // const table = numberToItem(tableSplited.join('')).map((piece, i) => ({p: piece, i, side: isCapitalize(piece) ? 'w' : 'b'}))
+    // const pieces = table.filter(piece => piece.p != '0')
 
     const { actualCell, eventClone, button } = eventCell || {}
     const { piece, side, column, row } = pieceActive || {}
-        
-    const pieces = numberToItem(tableSplited.join('')).map((piece, i) => ({p: piece, i, side: isCapitalize(piece) ? 'w' : 'b'})).filter(piece => piece.p != '0')
+    
+    const [fen, setFen] = useState(fenEx)
+    const [tableData, setTableData] = useState(getTableFromFen(fenEx))
 
-    console.log(pieces)
+    const {table, turn, castles, enpassant, halfTurns, fullTurns} = tableData
+    const pieces = table.filter(piece => piece.p != '0')
+
+    function getTableFromFen(fen) {
+        const fenSplited = fen.split(" ")
+        const [tableNotation, turn, castles, enpassant, halfTurns, fullTurns] = fenSplited
+        const tableSplited = tableNotation.split('/')
+        const table = numberToItem(tableSplited.join('')).map((piece, i) => ({p: piece, i, ...(piece != 0) ? {side: isCapitalize(piece) ? 'w' : 'b'} : null}))
+        return {table, turn, castles, enpassant, halfTurns, fullTurns}
+    }
 
     function allMoves(arr, piece, table) {
         const reduce = arr.reduce((prev, curr) => {
             const validMoves = (target, actual, table, moves = []) => {
                 const {c, r, isLoop, isAttack, sideNeeded, condition} = target
-                const {column, row, side} = actual
+                const {column, row, side, piece} = actual
                 const {castles, enpassant} = table
 
                 if (sideNeeded && sideNeeded !== side) return moves
@@ -107,21 +154,21 @@ export default function ChessTable() {
                 const i = (row+r)*8+(column+c)
                 const pieceTarget = pieces.find(p => p.i === i)
                 const rightCondition = condition && condition({c: column, r: row, pieceTarget, pieces, castles, enpassant})
-                console.log(notationToIndex(enpassant).i === (row-1)*8+column-1)
 
                 if (condition && !rightCondition) return moves
 
                 if (pieceTarget?.side === side) return moves
                 if (pieceTarget && !isAttack) return moves
 
-                const increment = [...moves, {i, type: pieceTarget && isAttack ? 'attack' : 'move'}]
+                const thisPiece = pieces.find(p => p.i === row*8+column)
+                const isPawn = thisPiece?.p.toLowerCase() === 'p'
+                const increment = [...moves, {piece, i, side, type: pieceTarget && isAttack ? 'attack' : 'move', canAttack: isAttack, ...(isPawn && isAttack && !pieceTarget) && {noTarget: true}}]
                 
-                if (isLoop && !pieceTarget) return validMoves(target, {column: column + c, row: row + r, side}, table, increment)
+                if (isLoop && !pieceTarget) return validMoves(target, {piece, column: column + c, row: row + r, side}, table, increment)
                 return increment
             }
 
             const moves = validMoves(curr, piece, table)
-            // console.log(moves, prev, curr)
             return [...prev, ...moves]
 
         }, [])
@@ -129,9 +176,42 @@ export default function ChessTable() {
         return reduce
     }
 
-    const attackMoves = pieceActive ? allMoves(movements[piece.toLowerCase()], {column, row, side, castles}, {castles, enpassant}): []
+    function movemmentPiece(move, index) {
+        setTableData(prev => {
+            const {table} = prev
+            const fixed = table.map(p => {
+                if (p.i === index) return {...p, p: pieceActive.piece, side: pieceActive.side, isPrev: true}
+                if (p.i === pieceActive.index) {
+                    const {side, ...rest} = p
+                    return {...rest, p: '0', isPrev: true}
+                }
+                const {isPrev, ...rest} = p
+                return {...rest}
+            })
+            return {...prev, table: fixed}
+        })
+        if (move === 'move') {
+        } else if (move === 'attack') {
+        }
+    }
 
-    const tableElements = tableSplited.map((r, i) => {
+    const attackMoves = pieceActive ? allMoves(movements[piece.toLowerCase()], {column, row, side, piece}, {castles, enpassant}): []
+    const allAttackMoves = pieces?.reduce((prev, curr) => {
+        const {p, i, side} = curr
+        const column = i % 8
+        const row = Math.floor(i / 8)
+        const moves = allMoves(movements[p.toLowerCase()], {piece: p, column, row, side}, {castles, enpassant}).filter(p => p.canAttack)
+
+        return [...prev, ...moves]
+    }, []).reduce((prev, curr) => {
+        const hasCopy = prev.find(p => p.i === curr.i && p.side === curr.side)
+        if (hasCopy) return prev
+        const {noTarget, type, canAttack, ...rest} = curr
+        return [...prev, rest]
+    }, [])
+
+    const tableNotation = translatedTable(table)
+    const tableElements = tableNotation.split('/').map((r, i) => {
         return (
             <Row
                 row={r}
@@ -147,6 +227,10 @@ export default function ChessTable() {
                 setPreHigh={setPreHigh}
                 pieces={pieces}
                 attackMoves={attackMoves}
+                tableData={tableData}
+                setTableData={setTableData}
+                movemmentPiece={movemmentPiece}
+                allAttackMoves={allAttackMoves}
             />
         )
     })
@@ -162,6 +246,8 @@ export default function ChessTable() {
                 setPieceActive={setPieceActive}
                 setEventCell={setEventCell}
                 setPreHigh={setPreHigh}
+                attackMoves={attackMoves}
+                movemmentPiece={movemmentPiece}
             />
         )
     })
@@ -178,14 +264,14 @@ export default function ChessTable() {
     }, [eventCell])
 
     return (
-        <main className="main-game" onContextMenu={handleContextMenu}>
+        <div className="table" onContextMenu={handleContextMenu}>
             <div className='pieces'>
                 {piecesElements}
             </div>
             <div className='chess-table'>
                 {tableElements}
             </div>
-        </main>
+        </div>
     )
 }
 
@@ -216,6 +302,10 @@ function Row(props) {
         setPreHigh,
         pieces,
         attackMoves,
+        tableData,
+        setTableData,
+        movemmentPiece,
+        allAttackMoves,
     } = props
     const rowsFull = numberToItem(row)
     
@@ -236,6 +326,10 @@ function Row(props) {
                 setPreHigh={setPreHigh}
                 pieces={pieces}
                 attackMoves={attackMoves}
+                tableData={tableData}
+                setTableData={setTableData}
+                movemmentPiece={movemmentPiece}
+                allAttackMoves={allAttackMoves}
             />
         )
     })
@@ -253,37 +347,58 @@ function Cell(props) {
         rowIndex, 
         columnIndex, 
         setPieceActive,
-        eventCell, 
-        setEventCell, 
         marks, 
         setMarks,
         preHigh,
         setPreHigh,
         pieces,
         attackMoves,
+        tableData,
+        setTableData,
+        movemmentPiece,
+        allAttackMoves,
     } = props
 
-    const color = 'punk'
     const index = rowIndex*8 + columnIndex
     const isThisActive = pieceActive?.index === index
-    const thisSelectedStage = pieceActive?.selectedStage || 0
+    const thisSelectedStage = pieceActive?.selectedStage
     const isThisMarked = marks?.includes(index)
     const isThisPreHigh = preHigh === index
-
+    
+    const color = 'punk'
     const styles = {
         // backgroundImage: `url("/chess-project/assets/pieces/${theme}/${piece}${side}.png")`,
         "--light-color": `var(--${color}-lc)`,
         "--dark-color": `var(--${color}-dc)`,
     }
 
-    const isThisMovement = attackMoves.find(attk => attk.i === index)?.type
+    const thisMove = attackMoves.find(attk => attk.i === index)
+    const {type, noTarget} = thisMove || {}
+    const isThisMovement = type && !noTarget
+
+    // const {piece, side} = pieceActive
+    const enemyMoves = thisMove?.piece.toLowerCase() === 'k' ? allAttackMoves.filter(attk => attk.side !== thisMove?.side) : []
+    const isInDanger = enemyMoves.some(m => m.i === thisMove.i)
+
+    const showAllAttacks = allAttackMoves.find(p => p.i === index) && false
     
     function handleMouseUp(e) {
         if (e.button === 0) {
-            if (!isThisActive) return
-            
+            setPreHigh()
+
+            if (!isThisActive) {
+                if (isThisMovement) {
+                    movemmentPiece(type, index)
+
+                    setPieceActive(null)
+                    return
+                }
+                return
+            }
+
             if (thisSelectedStage >= 2) {
                 setPieceActive(null)
+                return
             }
         } else if (e.button === 2) {
             if (isThisMarked) {
@@ -298,6 +413,9 @@ function Cell(props) {
     function handleMouseDown(e) {
         if (e.button === 0) {
             if (!isThisActive) {
+                if (isThisMovement) {
+                    movemmentPiece(type, index)
+                }
                 setPieceActive(null)
                 setMarks([])
             } else {
@@ -313,13 +431,12 @@ function Cell(props) {
     function handleMouseEnter(e) {
         const isMoving = pieceActive?.isMoving
         if (!isMoving) return
-
         setPreHigh(index)
     }
 
     return (
         <div 
-            className={`cell ${isThisMovement || ''} ${isThisPreHigh ? 'pre-high' : ''} ${isThisMarked ? 'marked' : ''} ${isThisActive && thisSelectedStage !== 0 ? 'selected' : ''}`}
+            className={`cell ${showAllAttacks ? 'marked' : ''} ${isThisMovement && !isInDanger ? type : ''} ${isThisPreHigh ? 'pre-high' : ''} ${isThisMarked ? 'marked' : ''} ${(isThisActive && thisSelectedStage !== 0) || tableData.table.find(p => p.i === index).isPrev ? 'selected' : ''}`}
             style={styles} 
             data-row={rowIndex} 
             data-column={columnIndex}
@@ -338,7 +455,8 @@ function Piece(props) {
         setPieceActive, 
         setEventCell,
         setPreHigh,
-
+        attackMoves,
+        movemmentPiece
     } = props
 
     const cellSize = Number(getComputedStyle(document.body).getPropertyValue('--piece-width').slice(0, -2))
@@ -370,6 +488,13 @@ function Piece(props) {
         const {button} = e
         if (button !== 0 && button !== 2) return
         if (button === 0) {
+            const move = attackMoves.find(p => p.i === index)?.type
+            if (move === 'attack') {
+                movemmentPiece(move, index)
+                setPieceActive(null)
+                setPreHigh()
+                return
+            }
             const {x, y} = e.target.closest('.main-game').getBoundingClientRect()
             setPieceActive(prev => (
                 {
@@ -409,6 +534,17 @@ function Piece(props) {
         setPreHigh(index)
     }
 
+    function handleMouseUp(e) {
+        if (!pieceActive) return
+        const move = attackMoves.find(p => p.i === index).type
+        if (move === 'attack') {
+            movemmentPiece(move, index)
+            setPieceActive(null)
+            setPreHigh()
+        }
+        return
+    }
+
     function getEvent(e, coords) {
         const {x, y} = coords
         const eventClone = new MouseEvent(e.type, e)
@@ -436,7 +572,7 @@ function Piece(props) {
             className={`piece ${isThisMoving ? 'moving' : ''}`} 
             style={styles} 
             onMouseDown={handleMouseDown} 
-            // onMouseUp={handleMouseUp}
+            onMouseUp={handleMouseUp}
             onMouseEnter={handleMouseEnter}
         />
     )

@@ -105,7 +105,8 @@ function translatedTable(array) {
     return result;
 }
 
-export default function ChessTable() {
+export default function ChessTable(props) {
+    const {playerSide} = props
     const [pieceActive, setPieceActive] = useState(null)
     const [eventCell, setEventCell] = useState()
     const [marks, setMarks] = useState([])
@@ -113,14 +114,9 @@ export default function ChessTable() {
 
 
     const fenPassant = "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1"
-    const fenEndGame = "8/pp2k3/4p3/P7/1PN2Pp1/2p3Pp/3r3P/4K3 b - f3 0 35"
+    const fenEndGame = "8/pp2k3/4p3/P7/1PN2Pp1/2p3Pp/3r3P/4K3 w - f3 0 35"
     const startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     const fenEx = fenEndGame
-    // const fenSplited = fenEx.split(" ")
-    // const [tableNotation, turn, castles, enpassant, halfTurns, fullTurns] = fenSplited
-    // const tableSplited = tableNotation.split('/')
-    // const table = numberToItem(tableSplited.join('')).map((piece, i) => ({p: piece, i, side: isCapitalize(piece) ? 'w' : 'b'}))
-    // const pieces = table.filter(piece => piece.p != '0')
 
     const { actualCell, eventClone, button } = eventCell || {}
     const { piece, side, column, row } = pieceActive || {}
@@ -157,12 +153,13 @@ export default function ChessTable() {
 
                 if (condition && !rightCondition) return moves
 
-                if (pieceTarget?.side === side) return moves
+                // if () return moves
                 if (pieceTarget && !isAttack) return moves
 
+                const isSameSide = pieceTarget?.side === side
                 const thisPiece = pieces.find(p => p.i === row*8+column)
                 const isPawn = thisPiece?.p.toLowerCase() === 'p'
-                const increment = [...moves, {piece, i, side, type: pieceTarget && isAttack ? 'attack' : 'move', canAttack: isAttack, ...(isPawn && isAttack && !pieceTarget) && {noTarget: true}}]
+                const increment = [...moves, {piece, i, side, type: pieceTarget && isAttack ? 'attack' : 'move', isSameSide, canAttack: isAttack, ...(isPawn && isAttack && !pieceTarget) && {noTarget: true}}]
                 
                 if (isLoop && !pieceTarget) return validMoves(target, {piece, column: column + c, row: row + r, side}, table, increment)
                 return increment
@@ -194,8 +191,7 @@ export default function ChessTable() {
         } else if (move === 'attack') {
         }
     }
-
-    const attackMoves = pieceActive ? allMoves(movements[piece.toLowerCase()], {column, row, side, piece}, {castles, enpassant}): []
+    
     const allAttackMoves = pieces?.reduce((prev, curr) => {
         const {p, i, side} = curr
         const column = i % 8
@@ -209,6 +205,20 @@ export default function ChessTable() {
         const {noTarget, type, canAttack, ...rest} = curr
         return [...prev, rest]
     }, [])
+
+    const enemyMoves = pieceActive ? allAttackMoves.filter(attk => attk.side !== pieceActive.side) : []
+
+    const attackMoves = pieceActive 
+        ? allMoves(movements[piece.toLowerCase()], {column, row, side, piece}, {castles, enpassant})
+            .filter(p => {
+                console.log(p.side, turn, playerSide)
+                if (!(turn === playerSide && p.side === playerSide)) return false
+                if (p.isSameSide) return false
+                const isInCheck = p.piece.toLowerCase() === 'k' && enemyMoves.some(m => m.i === p.i)
+                if (isInCheck) return false
+                return true
+            })
+        : []
 
     const tableNotation = translatedTable(table)
     const tableElements = tableNotation.split('/').map((r, i) => {
@@ -263,8 +273,32 @@ export default function ChessTable() {
         }
     }, [eventCell])
 
+    const columnCoords = [1, 2, 3, 4, 5, 6, 7, 8].map(c => {
+        return (
+            <div className='coord column'>
+                <span>{c}</span>
+            </div>
+        )
+    })
+
+    const rowCoords = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(r => {
+        return (
+            <div className='coord row'>
+                <span>{r}</span>
+            </div>
+        )
+    })
+    
     return (
         <div className="table" onContextMenu={handleContextMenu}>
+            <div className='coords'>
+                <div className='column-coords'>
+                    {columnCoords}
+                </div>
+                <div className='row-coords'>
+                    {rowCoords}
+                </div>
+            </div>
             <div className='pieces'>
                 {piecesElements}
             </div>
@@ -376,10 +410,6 @@ function Cell(props) {
     const {type, noTarget} = thisMove || {}
     const isThisMovement = type && !noTarget
 
-    // const {piece, side} = pieceActive
-    const enemyMoves = thisMove?.piece.toLowerCase() === 'k' ? allAttackMoves.filter(attk => attk.side !== thisMove?.side) : []
-    const isInDanger = enemyMoves.some(m => m.i === thisMove.i)
-
     const showAllAttacks = allAttackMoves.find(p => p.i === index) && false
     
     function handleMouseUp(e) {
@@ -429,6 +459,7 @@ function Cell(props) {
     }
     
     function handleMouseEnter(e) {
+        console.log('opa')
         const isMoving = pieceActive?.isMoving
         if (!isMoving) return
         setPreHigh(index)
@@ -436,7 +467,7 @@ function Cell(props) {
 
     return (
         <div 
-            className={`cell ${showAllAttacks ? 'marked' : ''} ${isThisMovement && !isInDanger ? type : ''} ${isThisPreHigh ? 'pre-high' : ''} ${isThisMarked ? 'marked' : ''} ${(isThisActive && thisSelectedStage !== 0) || tableData.table.find(p => p.i === index).isPrev ? 'selected' : ''}`}
+            className={`cell ${showAllAttacks ? 'marked' : ''} ${isThisMovement && type} ${isThisPreHigh ? 'pre-high' : ''} ${isThisMarked ? 'marked' : ''} ${(isThisActive && thisSelectedStage !== 0) || tableData.table.find(p => p.i === index).isPrev ? 'selected' : ''}`}
             style={styles} 
             data-row={rowIndex} 
             data-column={columnIndex}
@@ -495,7 +526,7 @@ function Piece(props) {
                 setPreHigh()
                 return
             }
-            const {x, y} = e.target.closest('.main-game').getBoundingClientRect()
+            const {x, y} = e.target.closest('.table').getBoundingClientRect()
             setPieceActive(prev => (
                 {
                     piece,
@@ -535,8 +566,9 @@ function Piece(props) {
     }
 
     function handleMouseUp(e) {
+        console.log('opa')
         if (!pieceActive) return
-        const move = attackMoves.find(p => p.i === index).type
+        const move = attackMoves.find(p => p.i === index)?.type
         if (move === 'attack') {
             movemmentPiece(move, index)
             setPieceActive(null)

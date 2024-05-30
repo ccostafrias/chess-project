@@ -105,6 +105,10 @@ body {
   margin: 0 auto;
 }
 
+.table {
+  position: relative;
+}
+
 .chess-table {
   width: fit-content;
   display: grid;
@@ -160,7 +164,11 @@ body {
 }
 
 .pieces {
-  position: relative;
+  aspect-ratio: 1 / 1;
+  height: calc(var(--piece-width)* 8);
+  position: absolute;
+  /* transform: rotate(180deg); */
+  /* z-index: 99; */
 }
 
 .piece {
@@ -202,4 +210,49 @@ html:has(.moving) {
 .player-name {
   font-size: var(--fs-400);
   font-weight: var(--fw-regular);
+}
+
+/* coords */
+
+.coords {
+  aspect-ratio: 1/1;
+  height: calc(var(--piece-width)*8);
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  user-select: none;
+  pointer-events: none;
+}
+
+.column-coords {
+  position: absolute;
+  width: fit-content;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.row-coords {
+  position: absolute;
+  bottom: 0;
+  width: fit-content;
+  display: flex;
+  flex-direction: row;
+}
+
+.coord {
+  aspect-ratio: 1/1;
+  width: var(--piece-width);
+  padding: 0em .4em;
+  font-size: var(--fs-200);
+}
+
+.coord.row {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: row-reverse;
+}
+
+.coord:nth-child(even) {
+  /* color: */
 }

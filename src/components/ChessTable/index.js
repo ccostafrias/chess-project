@@ -1,109 +1,10 @@
 import React, { useEffect, useState } from 'react'
+import {numberToItem, isCapitalize, fenConverter} from "../../utils/functions"
 
-const movements = {
-    n: [
-        {c: -2, r: -1, isAttack: true},
-        {c: -1, r: -2, isAttack: true},
-        {c: 2, r: -1, isAttack: true},
-        {c: 1, r: -2, isAttack: true},
-        {c: -2, r: 1, isAttack: true},
-        {c: -1, r: 2, isAttack: true},
-        {c: 2, r: 1, isAttack: true},
-        {c: 1, r: 2, isAttack: true},
-    ],
-    k: [
-        {c: -1, r: -1, isAttack: true},
-        {c: 0, r: -1, isAttack: true},
-        {c: 1, r: -1, isAttack: true},
-        {c: -1, r: 0, isAttack: true},
-        {c: 1, r: 0, isAttack: true},
-        {c: -1, r: 1, isAttack: true},
-        {c: 0, r: 1, isAttack: true},
-        {c: 1, r: 1, isAttack: true},
-        {c: 2, r: 0, isAttack: true, sideNeeded: 'w', condition: (props) => props.castles.includes('K'), castle: 'K'},
-        {c: -2, r: 0, isAttack: true, sideNeeded: 'w', condition: (props) => props.castles.includes('Q'), castle: 'Q'},
-        {c: 2, r: 0, isAttack: true, sideNeeded: 'b', condition: (props) => props.castles.includes('k'), castle: 'k'},
-        {c: -2, r: 0, isAttack: true, sideNeeded: 'b', condition: (props) => props.castles.includes('q'), castle: 'q'},
+import Coord from '../Coord'
 
-    ],
-    r: [
-        {c: 0, r: -1, isLoop: true, isAttack: true},
-        {c: 0, r: 1, isLoop: true, isAttack: true},
-        {c: 1, r: 0, isLoop: true, isAttack: true},
-        {c: -1, r: 0, isLoop: true, isAttack: true},
-    ],
-    b: [
-        {c: -1, r: -1, isLoop: true, isAttack: true},
-        {c: 1, r: -1, isLoop: true, isAttack: true},
-        {c: -1, r: 1, isLoop: true, isAttack: true},
-        {c: 1, r: 1, isLoop: true, isAttack: true},
-    ],
-    q: [
-        {c: -1, r: -1, isLoop: true, isAttack: true},
-        {c: 1, r: -1, isLoop: true, isAttack: true},
-        {c: -1, r: 1, isLoop: true, isAttack: true},
-        {c: 1, r: 1, isLoop: true, isAttack: true},
-        {c: 0, r: -1, isLoop: true, isAttack: true},
-        {c: -1, r: 0, isLoop: true, isAttack: true},
-        {c: 1, r: 0, isLoop: true, isAttack: true},
-        {c: 0, r: 1, isLoop: true, isAttack: true},
-    ],
-    p: [
-        {c: 0, r: 1, isAttack: false, sideNeeded: 'b'},
-        {c: 0, r: 2, isAttack: false, sideNeeded: 'b', condition: (props) => props.r === 1 && !props.pieces.find(p => p.i === (props.r+1)*8+props.c)},
-        {c: 0, r: -1, isAttack: false, sideNeeded: 'w'},
-        {c: 0, r: -2, isAttack: false, sideNeeded: 'w', condition: (props) => props.r === 6 && !props.pieces.find(p => p.i === (props.r-1)*8+props.c)},
-        {c: -1, r: 1, isAttack: true, sideNeeded: 'b'},//, condition: (props) => (notationToIndex(props.enpassant).i === (props.r+1)*8+props.c-1 && isBetween(40, notationToIndex(props.enpassant).i, 47)), isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r+1)*8+props.c-1},
-        {c: 1, r: 1, isAttack: true, sideNeeded: 'b'},// condition: (props) => (notationToIndex(props.enpassant).i === (props.r+1)*8+props.c+1 && isBetween(40, notationToIndex(props.enpassant).i, 47)), isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r+1)*8+props.c+1},
-        {c: -1, r: -1, isAttack: true, sideNeeded: 'w'},// condition: (props) => (notationToIndex(props.enpassant).i === (props.r-1)*8+props.c-1 && isBetween(16, notationToIndex(props.enpassant).i, 23)), isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r-1)*8+props.c-1},
-        {c: 1, r: -1, isAttack: true, sideNeeded: 'w'},// condition: (props) => (notationToIndex(props.enpassant).i === (props.r-1)*8+props.c+1 && isBetween(16, notationToIndex(props.enpassant).i, 23)), isEnpassant: (props) => notationToIndex(props.enpassant).i === (props.r-1)*8+props.c+1},
-    ]
-}
+import {movements} from "../../utils/consts"
 
-function isBetween(less, bet, great) {
-    return !!(less <= bet && bet <= great)
-}
-
-function closer(v1, v2, ref) {
-    return Math.abs(v1 - ref) < Math.abs(v2 - ref) ? v1 : v2;
-}
-
-function notationToIndex(notation) {
-    if (notation === '-') return {}
-    const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
-    const [first, second] = notation.split('')
-    const c = letters.indexOf(first)
-    const r = 8-Number(second)
-    const i = r*8+c
-    return {r, c, i}
-}
-
-function translatedTable(array) {
-    // Cria uma string concatenando os valores da chave 'p' de cada objeto
-    let str = array.map(obj => obj.p).join('');
-    
-    // Inicializa uma variável para armazenar o resultado final
-    let result = '';
-    
-    // Processa a string em blocos de 8 caracteres
-    for (let i = 0; i < str.length; i += 8) {
-        // Extrai um bloco de 8 caracteres ou menos
-        let chunk = str.slice(i, i + 8);
-        
-        // Substitui sequências de zeros consecutivos pelo seu comprimento
-        chunk = chunk.replace(/0+/g, match => match.length);
-        
-        // Adiciona o bloco processado ao resultado
-        result += chunk + '/';
-    }
-    
-    // Remove a barra final desnecessária
-    if (result.endsWith('/')) {
-        result = result.slice(0, -1);
-    }
-    
-    return result;
-}
 
 export default function ChessTable(props) {
     const {playerSide} = props
@@ -118,8 +19,8 @@ export default function ChessTable(props) {
     const startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     const fenEx = fenEndGame
 
-    const { actualCell, eventClone, button } = eventCell || {}
-    const { piece, side, column, row } = pieceActive || {}
+    const {actualCell, eventClone, button} = eventCell || {}
+    const {piece, side, column, row} = pieceActive || {}
     
     const [fen, setFen] = useState(fenEx)
     const [tableData, setTableData] = useState(getTableFromFen(fenEx))
@@ -211,7 +112,6 @@ export default function ChessTable(props) {
     const attackMoves = pieceActive 
         ? allMoves(movements[piece.toLowerCase()], {column, row, side, piece}, {castles, enpassant})
             .filter(p => {
-                console.log(p.side, turn, playerSide)
                 if (!(turn === playerSide && p.side === playerSide)) return false
                 if (p.isSameSide) return false
                 const isInCheck = p.piece.toLowerCase() === 'k' && enemyMoves.some(m => m.i === p.i)
@@ -220,7 +120,7 @@ export default function ChessTable(props) {
             })
         : []
 
-    const tableNotation = translatedTable(table)
+    const tableNotation = fenConverter(table)
     const tableElements = tableNotation.split('/').map((r, i) => {
         return (
             <Row
@@ -273,19 +173,23 @@ export default function ChessTable(props) {
         }
     }, [eventCell])
 
-    const columnCoords = [1, 2, 3, 4, 5, 6, 7, 8].map(c => {
+    const columnCoords = [1, 2, 3, 4, 5, 6, 7, 8].map((c, i) => {
         return (
-            <div className='coord column'>
-                <span>{c}</span>
-            </div>
+            <Coord
+                key={i}
+                coord={'column'}
+                c={c}
+            />
         )
     })
 
-    const rowCoords = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(r => {
+    const rowCoords = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((r, i) => {
         return (
-            <div className='coord row'>
-                <span>{r}</span>
-            </div>
+            <Coord
+                key={i}
+                coord={'row'}
+                c={r}
+            />
         )
     })
     
@@ -308,19 +212,6 @@ export default function ChessTable(props) {
         </div>
     )
 }
-
-function numberToItem(arr) {
-    const array = Array.isArray(arr) ? arr : Array.from(arr)
-    return array.reduce((acc, curr) => {
-        const num = Number(curr)
-        if (!num) return [...acc, curr]
-        else {
-            const empties = Array.from(Array(num), (_) => '0')
-            return acc.concat(empties)
-        }
-    }, [])
-}
-
 
 function Row(props) {
     const {
@@ -459,7 +350,6 @@ function Cell(props) {
     }
     
     function handleMouseEnter(e) {
-        console.log('opa')
         const isMoving = pieceActive?.isMoving
         if (!isMoving) return
         setPreHigh(index)
@@ -566,7 +456,6 @@ function Piece(props) {
     }
 
     function handleMouseUp(e) {
-        console.log('opa')
         if (!pieceActive) return
         const move = attackMoves.find(p => p.i === index)?.type
         if (move === 'attack') {
@@ -608,8 +497,4 @@ function Piece(props) {
             onMouseEnter={handleMouseEnter}
         />
     )
-}
-
-function isCapitalize(str) {
-    return str.toUpperCase() === str ? true : false
 }
